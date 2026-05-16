@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.analysis_service import analyze_candidate_match
 from app.config import settings
@@ -14,6 +15,25 @@ app = FastAPI(
 )
 
 
+origins = [
+    "http://127.0.0.1:5500",
+    "http://localhost:5500",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://yigitumut.com",
+    "https://www.yigitumut.com",
+]
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 @app.get("/")
 def home():
     return {
@@ -26,6 +46,9 @@ def home():
 
 @app.get("/health")
 def health_check():
+    """
+    Return API and vector store health information.
+    """
     try:
         vector_stats = get_vector_store_stats()
 
@@ -55,6 +78,7 @@ def query_candidates(request: QueryRequest):
 
     try:
         index, metadata = load_vector_store()
+
         matched_index, similarity_score, candidate = get_best_candidate_match(
             query=cleaned_query,
             index=index,
@@ -76,8 +100,26 @@ def query_candidates(request: QueryRequest):
             ),
         )
 
+    except FileNotFoundError as error:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Vector store is not ready: {str(error)}",
+        )
+
+    except RuntimeError as error:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Vector store configuration error: {str(error)}",
+        )
+
     except LookupError as error:
         raise HTTPException(status_code=404, detail=str(error))
 
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+
     except Exception as error:
-        raise HTTPException(status_code=500, detail=str(error))
+        raise HTTPException(
+            status_code=502,
+            detail=f"Candidate analysis failed: {str(error)}",
+        )
