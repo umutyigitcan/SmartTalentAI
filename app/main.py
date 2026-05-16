@@ -1,8 +1,9 @@
 from fastapi import FastAPI, HTTPException
 
 from app.config import settings
+from app.retrieval_service import get_best_candidate_match
 from app.schemas import CandidateMatch, QueryRequest, QueryResponse
-from app.vector_store import get_vector_store_stats
+from app.vector_store import get_vector_store_stats, load_vector_store
 
 
 app = FastAPI(
@@ -45,20 +46,32 @@ def health_check():
 def query_candidates(request: QueryRequest):
     """
     Analyze a recruiter query and return the best matching candidate.
-
-    The real RAG pipeline will be connected in later commits.
     """
     cleaned_query = request.query.strip()
 
     if not cleaned_query:
         raise HTTPException(status_code=400, detail="Query cannot be empty.")
 
-    return QueryResponse(
-        answer="Candidate matching pipeline is not connected yet.",
-        match=CandidateMatch(
-            matched_index=-1,
-            similarity_score=0.0,
-            filename=None,
-            preview=None,
-        ),
-    )
+    try:
+        index, metadata = load_vector_store()
+        matched_index, similarity_score, candidate = get_best_candidate_match(
+            query=cleaned_query,
+            index=index,
+            metadata=metadata,
+        )
+
+        return QueryResponse(
+            answer="Candidate retrieval completed. AI analysis will be added in the next step.",
+            match=CandidateMatch(
+                matched_index=matched_index,
+                similarity_score=similarity_score,
+                filename=candidate.get("filename"),
+                preview=candidate.get("preview"),
+            ),
+        )
+
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error))
+
+    except Exception as error:
+        raise HTTPException(status_code=500, detail=str(error))
