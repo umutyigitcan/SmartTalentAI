@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 
+from app.analysis_service import analyze_candidate_match
 from app.config import settings
 from app.retrieval_service import get_best_candidate_match
 from app.schemas import CandidateMatch, QueryRequest, QueryResponse
@@ -45,7 +46,7 @@ def health_check():
 @app.post("/query", response_model=QueryResponse)
 def query_candidates(request: QueryRequest):
     """
-    Analyze a recruiter query and return the best matching candidate.
+    Analyze a recruiter query and return the best matching candidate with AI explanation.
     """
     cleaned_query = request.query.strip()
 
@@ -60,8 +61,13 @@ def query_candidates(request: QueryRequest):
             metadata=metadata,
         )
 
+        answer = analyze_candidate_match(
+            query=cleaned_query,
+            candidate=candidate,
+        )
+
         return QueryResponse(
-            answer="Candidate retrieval completed. AI analysis will be added in the next step.",
+            answer=answer,
             match=CandidateMatch(
                 matched_index=matched_index,
                 similarity_score=similarity_score,
