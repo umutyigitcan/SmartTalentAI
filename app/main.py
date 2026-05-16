@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 
 from app.config import settings
 from app.schemas import CandidateMatch, QueryRequest, QueryResponse
+from app.vector_store import get_vector_store_stats
 
 
 app = FastAPI(
@@ -19,6 +20,25 @@ def home():
         "chat_model": settings.openai_chat_model,
         "embedding_model": settings.openai_embedding_model,
     }
+
+
+@app.get("/health")
+def health_check():
+    try:
+        vector_stats = get_vector_store_stats()
+
+        return {
+            "status": "healthy",
+            "vector_store_ready": True,
+            **vector_stats,
+        }
+
+    except Exception as error:
+        return {
+            "status": "degraded",
+            "vector_store_ready": False,
+            "detail": str(error),
+        }
 
 
 @app.post("/query", response_model=QueryResponse)
