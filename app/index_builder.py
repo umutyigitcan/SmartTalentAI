@@ -4,6 +4,7 @@ import faiss
 import numpy as np
 
 from app.embedding_service import create_normalized_embedding_matrix
+from app.metadata_store import build_metadata, save_metadata
 from app.pdf_loader import DATA_DIR, load_cv_documents
 
 
@@ -34,7 +35,8 @@ def save_faiss_index(index: faiss.IndexFlatIP, index_path: str = INDEX_PATH) -> 
 
 def build_and_save_index(index_path: str = INDEX_PATH) -> int:
     """
-    Load CV documents, create embeddings, build a FAISS index, and save it to disk.
+    Load CV documents, create embeddings, build a FAISS index,
+    save the index, and persist metadata for later retrieval.
 
     Returns the number of indexed CV documents.
     """
@@ -49,9 +51,12 @@ def build_and_save_index(index_path: str = INDEX_PATH) -> int:
     index = build_faiss_index(embedding_matrix)
     save_faiss_index(index, index_path)
 
+    metadata = build_metadata(documents)
+    save_metadata(metadata)
+
     return len(documents)
 
 
 if __name__ == "__main__":
     count = build_and_save_index()
-    print(f"FAISS index created successfully with {count} CV documents.")
+    print(f"FAISS index and metadata created successfully with {count} CV documents.")
